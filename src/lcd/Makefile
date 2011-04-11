@@ -70,7 +70,7 @@ FORMAT = ihex
 
 
 # Target file name (without extension).
-TARGET = lcd1
+TARGET = 4bit
 
 
 # Object files directory
