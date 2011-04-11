@@ -9,6 +9,7 @@
 	
 #define SH_LEFT 0x10
 #define SH_RIGHT 0x14
+#define LINE_LENGTH 16
 
 /** PORTC od najmlodszego bitu:
  * RS
@@ -20,6 +21,13 @@
  * D0
  * D1
  * itd. */
+ 
+void cursor_home(){
+	PORTC &= 0xfc; // RS=R/W=0
+	PORTD = 0x2;
+	
+	TIC()
+}
 
 void function_set(){
 	PORTC &= 0xfc; // RS=R/W=0
@@ -39,7 +47,7 @@ void data_write(char data){
 /**
  *@param direction should be SH_LEFT or SH_RIGHT
  */
-void shift_cursor(short direction){
+void shift_cursor(uint8_t direction){
 	PORTD = direction;
 	PORTC &= 0xfc; // RS=R/W=0
 	
@@ -68,6 +76,33 @@ void set_entry_mode(){
 	TIC()
 }
 
+void shift_cursor_to(uint8_t pos){
+	cursor_home();
+	
+	uint8_t i = 0;
+	for(i=0; i<pos; ++i)
+		shift_cursor(SH_RIGHT);
+}
+
+void clear_line(uint8_t line){
+	shift_cursor_to(line*LINE_LENGTH+15);
+	uint8_t i;
+	for(i=0; i<LINE_LENGTH-1; ++i){ //LINE_LENGTH-1, bo w ostatniej iteracji nie chce przesuwac kursora dwukrotnie
+		data_write(' ');
+		shift_cursor(SH_LEFT);
+		shift_cursor(SH_LEFT);
+	}
+	data_write(' ');
+	shift_cursor(SH_LEFT);
+}
+
+void print(char * str){
+	while(*str != 0){
+		data_write(*str);
+		++str;
+	}
+}
+
 int main(void){
 	//ustawienie portow
 	DDRD = 0xff;
@@ -77,63 +112,90 @@ int main(void){
 	PORTB = 0x02;
 	
 	display_on();
-	
 	display_clear();
-	
 	set_entry_mode();
-	
 	function_set();
 	
-	data_write('H');
-	data_write('e');
-	data_write('l');
-	data_write('l');
-	data_write('o');
-	data_write(' ');
-	data_write('w');
-	data_write('o');
-	data_write('r');
-	data_write('l');
-	data_write('d');
-	data_write('a');
-	shift_cursor(SH_LEFT);
+	print("Ladies and");
+	_delay_ms(1500);
+	clear_line(0);
+	
+	print("Gentlemen");
+	_delay_ms(1500);
+	clear_line(0);
+	
+	print("We are floating");
+	_delay_ms(1500);
+	clear_line(0);
+	
+	print("in space");
+	_delay_ms(1500);
+	clear_line(0);
 	
 	short offset = 0;
 	
 	while(1){
+	
 		if(!(PINC & 0x20)){
 			
 			++offset;
 			data_write('a'+offset);
 			shift_cursor(SH_LEFT);
 			
-			while(!(PINC & 0x20)){}
-			_delay_ms(50);
+			_delay_ms(20); // przeczekaj drgania stykow
+			
+			uint8_t step = 10, counter = 0;
+			while(!(PINC & 0x20)){ //dopoki wcisniety
+				if(counter>100){
+					step = 3;
+					counter = 0;
+					
+					++offset;
+					data_write('a'+offset);
+					shift_cursor(SH_LEFT);
+				}else
+					++counter;
+					
+				_delay_ms(step);
+			}
+			_delay_ms(20); // przeczekaj drgania stykow
 		}
+		
 		if(!(PINC & 0x10)){
 			
 			--offset;
 			data_write('a'+offset);
 			shift_cursor(SH_LEFT);
 			
-			while(!(PINC & 0x10)){}
-			_delay_ms(50);
+			_delay_ms(20); // przeczekaj drgania stykow
+			
+			uint8_t step = 10, counter = 0;
+			while(!(PINC & 0x10)){ //dopoki wcisniety
+				if(counter>100){
+					step = 3;
+					counter = 0;
+					
+					--offset;
+					data_write('a'+offset);
+					shift_cursor(SH_LEFT);
+				}else
+					++counter;
+					
+				_delay_ms(step);
+			}
+			_delay_ms(20); // przeczekaj drgania stykow
 		}
+		
 		if(!(PINB & 0x2)){
 			
 			shift_cursor(SH_RIGHT);
 			data_write('a');
 			shift_cursor(SH_LEFT);
 			offset = 0;
-			while(!(PINB & 0x2)){}
-			_delay_ms(50);
+			
+			_delay_ms(20); // przeczekaj drgania stykow
+			while(!(PINB & 0x2)){} //dopoki wcisniety
+			_delay_ms(20); // przeczekaj drgania stykow
 		}
 	}
-	
-	/*while(1){
-		PORTC |= 4;
-		_delay_ms(660);
-		PORTC &= 255-4;
-		_delay_ms(660);
-	}*/
 }
